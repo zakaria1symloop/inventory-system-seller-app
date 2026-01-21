@@ -4,7 +4,7 @@ import '../data/models/product_model.dart';
 class CartItem {
   final ProductModel product;
   int quantity;
-  double unitPrice; // Price per 1 piece
+  double unitPrice; // Price per piece (will be multiplied by pieces_per_package)
   double originalPrice; // Original price per piece (to track changes)
   double discount;
 
@@ -16,9 +16,9 @@ class CartItem {
     this.discount = 0,
   }) : originalPrice = originalPrice ?? unitPrice;
 
-  // Subtotal = unit_price (per package) × quantity - discount
-  // unitPrice is already the price per package/carton, not per piece
-  double get subtotal => (unitPrice * quantity) - discount;
+  // Subtotal = unit_price (per piece) × pieces_per_package × quantity - discount
+  // This matches the backend calculation: unit_price * piecesPerPackage * quantity
+  double get subtotal => (unitPrice * product.piecesPerPackage * quantity) - discount;
 
   Map<String, dynamic> toOrderItem() {
     return {
