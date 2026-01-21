@@ -16,8 +16,9 @@ class CartItem {
     this.discount = 0,
   }) : originalPrice = originalPrice ?? unitPrice;
 
-  // Subtotal = unit_price (per piece) × pieces_per_package × quantity - discount
-  double get subtotal => (unitPrice * product.piecesPerPackage * quantity) - discount;
+  // Subtotal = unit_price (per package) × quantity - discount
+  // unitPrice is already the price per package/carton, not per piece
+  double get subtotal => (unitPrice * quantity) - discount;
 
   Map<String, dynamic> toOrderItem() {
     return {

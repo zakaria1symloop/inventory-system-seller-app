@@ -392,7 +392,7 @@ class OrderDetailScreen extends ConsumerWidget {
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                               Text(
-                                '${item.unitPrice.toStringAsFixed(0)}×${item.piecesPerPackage}×${item.quantityOrdered}',
+                                '${item.unitPrice.toStringAsFixed(0)}×${item.quantityOrdered}',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                               ),
@@ -656,7 +656,7 @@ class OrderDetailScreen extends ConsumerWidget {
                               crossAxisAlignment: pw.CrossAxisAlignment.center,
                               children: [
                                 pw.Text('${item.subtotal.toStringAsFixed(0)}', style: pw.TextStyle(font: arabicFontBold), textAlign: pw.TextAlign.center),
-                                pw.Text('${item.unitPrice.toStringAsFixed(0)}×${item.piecesPerPackage}×${item.quantityOrdered}', style: pw.TextStyle(font: arabicFont, fontSize: 8, color: PdfColors.grey600), textAlign: pw.TextAlign.center),
+                                pw.Text('${item.unitPrice.toStringAsFixed(0)}×${item.quantityOrdered}', style: pw.TextStyle(font: arabicFont, fontSize: 8, color: PdfColors.grey600), textAlign: pw.TextAlign.center),
                               ],
                             ),
                           ),

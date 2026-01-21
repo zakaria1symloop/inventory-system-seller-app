@@ -117,65 +117,171 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
   }
 }
 
-class _ClientCard extends StatelessWidget {
+class _ClientCard extends ConsumerWidget {
   final ClientModel client;
 
   const _ClientCard({required this.client});
 
+  void _showPaymentDialog(BuildContext context, WidgetRef ref) {
+    final TextEditingController amountController = TextEditingController();
+    final TextEditingController notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تحصيل دفعة', style: TextStyle(fontSize: 18)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('الدين الحالي: ${client.balance.toStringAsFixed(0)} د.ج',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.dangerColor)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'المبلغ المحصل',
+                border: OutlineInputBorder(),
+                suffixText: 'د.ج',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(
+                labelText: 'ملاحظات (اختياري)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final amount = double.tryParse(amountController.text);
+              if (amount == null || amount <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('يرجى إدخال مبلغ صحيح')),
+                );
+                return;
+              }
+              if (amount > client.balance) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('المبلغ أكبر من الدين')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+
+              // Call API to record payment
+              try {
+                final response = await ApiService.instance.recordClientPayment(
+                  client.id,
+                  amount,
+                  notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                );
+
+                if (!context.mounted) return;
+
+                if (response.statusCode == 201) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('تم تحصيل ${amount.toStringAsFixed(0)} د.ج')),
+                  );
+                  // Refresh clients list
+                  ref.invalidate(clientsProvider);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('فشل تسجيل الدفعة')),
+                  );
+                }
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('خطأ: $e')),
+                );
+              }
+            },
+            child: const Text('تحصيل'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                child: Text(
-                  client.name.isNotEmpty ? client.name.substring(0, 1) : "?",
-                  style: const TextStyle(
-                    fontSize: 18,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+              child: Text(
+                client.name.isNotEmpty ? client.name.substring(0, 1) : "?",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    client.name,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  if (client.phone != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(client.phone!, style: const TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  "${client.balance.toStringAsFixed(0)} د.ج",
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                    color: client.balance > 0 ? AppTheme.dangerColor : AppTheme.successColor,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      client.name,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                if (client.balance > 0) ...[
+                  const SizedBox(height: 4),
+                  ElevatedButton.icon(
+                    onPressed: () => _showPaymentDialog(context, ref),
+                    icon: const Icon(Icons.payments, size: 14),
+                    label: const Text('تحصيل', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    if (client.phone != null) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.phone, size: 14, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(client.phone!, style: const TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              Text(
-                "${client.balance.toStringAsFixed(0)} د.ج",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: client.balance > 0 ? AppTheme.dangerColor : AppTheme.successColor,
-                ),
-              ),
-            ],
-          ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
       ),
     );

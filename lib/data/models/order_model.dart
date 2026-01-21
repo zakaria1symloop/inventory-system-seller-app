@@ -85,9 +85,9 @@ class OrderModel {
       paymentStatus: json["payment_status"]?.toString() ?? "unpaid",
       paymentMethod: json["payment_method"]?.toString(),
       notes: json["notes"]?.toString(),
-      clientName: json["client"]?["name"]?.toString(),
-      clientPhone: json["client"]?["phone"]?.toString(),
-      clientAddress: json["client"]?["address"]?.toString(),
+      clientName: json["client"]?["name"]?.toString() ?? json["client_name"]?.toString(),
+      clientPhone: json["client"]?["phone"]?.toString() ?? json["client_phone"]?.toString(),
+      clientAddress: json["client"]?["address"]?.toString() ?? json["client_address"]?.toString(),
       warehouseName: json["warehouse"]?["name"]?.toString(),
       items: json["items"] != null
           ? (json["items"] as List).map((e) => OrderItemModel.fromJson(e)).toList()

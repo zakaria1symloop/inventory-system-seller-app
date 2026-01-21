@@ -1005,7 +1005,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${item.unitPrice.toStringAsFixed(0)}×${item.product.piecesPerPackage}×${item.quantity}',
+                        '${item.unitPrice.toStringAsFixed(0)}×${item.quantity}',
                         style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                     ],

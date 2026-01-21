@@ -146,6 +146,13 @@ class ApiService {
     return _dio.post(ApiConstants.clients, data: data);
   }
 
+  Future<Response> recordClientPayment(int clientId, double amount, String? notes) async {
+    return _dio.post('${ApiConstants.clients}/$clientId/payments', data: {
+      'amount': amount,
+      'notes': notes,
+    });
+  }
+
   // Warehouses
   Future<Response> getWarehouses() async {
     return _dio.get('/warehouses');
