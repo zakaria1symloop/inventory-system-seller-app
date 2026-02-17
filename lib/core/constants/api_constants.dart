@@ -1,8 +1,8 @@
 class ApiConstants {
   // Local development
-  // static const String baseUrl = 'http://192.168.100.36:8080/api';
+  // static const String baseUrl = 'http://192.168.100.36:8000/api';
   // Production:
-  static const String baseUrl = 'https://rafik-biskra.symloop.com/api';
+  static const String baseUrl = 'https://logistics-demo.symloop.com/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // Auth
@@ -28,4 +28,9 @@ class ApiConstants {
 
   // Clients
   static const String clients = '/clients';
+  static const String clientCategories = '/client-categories';
+
+  // Caisses
+  static const String myCaisse = '/caisses/my';
+  static const String caisseTransactions = '/caisses'; // /{id}/transactions
 }

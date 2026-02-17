@@ -33,6 +33,8 @@ class ClientModel {
   final double? creditLimit;
   final double balance;
   final bool isActive;
+  final int? clientCategoryId;
+  final String? clientCategoryName;
 
   ClientModel({
     required this.id,
@@ -45,6 +47,8 @@ class ClientModel {
     this.creditLimit,
     required this.balance,
     required this.isActive,
+    this.clientCategoryId,
+    this.clientCategoryName,
   });
 
   factory ClientModel.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,8 @@ class ClientModel {
       creditLimit: _toDoubleNullable(json["credit_limit"]),
       balance: _toDouble(json["balance"]),
       isActive: json["is_active"] ?? true,
+      clientCategoryId: json["client_category_id"] != null ? _toInt(json["client_category_id"]) : null,
+      clientCategoryName: json["client_category"]?["name"]?.toString(),
     );
   }
 
@@ -74,6 +80,7 @@ class ClientModel {
       "credit_limit": creditLimit,
       "balance": balance,
       "is_active": isActive,
+      "client_category_id": clientCategoryId,
     };
   }
 }

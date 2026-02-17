@@ -142,6 +142,10 @@ class ApiService {
     return _dio.get(ApiConstants.clients, queryParameters: params);
   }
 
+  Future<Response> getClientCategories() async {
+    return _dio.get(ApiConstants.clientCategories);
+  }
+
   Future<Response> createClient(Map<String, dynamic> data) async {
     return _dio.post(ApiConstants.clients, data: data);
   }
@@ -156,5 +160,16 @@ class ApiService {
   // Warehouses
   Future<Response> getWarehouses() async {
     return _dio.get('/warehouses');
+  }
+
+  // Caisses
+  Future<Response> getMyCaisse() async {
+    return _dio.get(ApiConstants.myCaisse);
+  }
+
+  Future<Response> getCaisseTransactions(int caisseId, {int page = 1, String? type}) async {
+    final params = <String, dynamic>{'page': page, 'per_page': 20};
+    if (type != null) params['type'] = type;
+    return _dio.get('${ApiConstants.caisseTransactions}/$caisseId/transactions', queryParameters: params);
   }
 }

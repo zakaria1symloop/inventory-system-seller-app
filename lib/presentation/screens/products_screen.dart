@@ -196,12 +196,30 @@ class _ProductCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        "د.ج/${product.unitSaleShortName ?? 'وحدة'}",
+                        "د.ج/قطعة",
                         style: TextStyle(
                           fontSize: 10,
                           color: AppTheme.primaryColor.withValues(alpha: 0.8),
                         ),
                       ),
+                      if (product.piecesPerPackage > 1) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          "${(product.unitPrice * product.piecesPerPackage).toStringAsFixed(2)}",
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[800],
+                          ),
+                        ),
+                        Text(
+                          "د.ج/كرتون",
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.orange[600],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

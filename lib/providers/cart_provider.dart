@@ -3,7 +3,8 @@ import '../data/models/product_model.dart';
 
 class CartItem {
   final ProductModel product;
-  int quantity;
+  int quantity; // Cartons
+  int extraPieces; // Extra individual pieces (0 to piecesPerPackage-1)
   double unitPrice; // Price per piece (will be multiplied by pieces_per_package)
   double originalPrice; // Original price per piece (to track changes)
   double discount;
@@ -11,19 +12,28 @@ class CartItem {
   CartItem({
     required this.product,
     this.quantity = 1,
+    this.extraPieces = 0,
     required this.unitPrice,
     double? originalPrice,
     this.discount = 0,
   }) : originalPrice = originalPrice ?? unitPrice;
 
-  // Subtotal = unit_price (per piece) × pieces_per_package × quantity - discount
-  // This matches the backend calculation: unit_price * piecesPerPackage * quantity
-  double get subtotal => (unitPrice * product.piecesPerPackage * quantity) - discount;
+  // Total pieces = (cartons × piecesPerPackage) + extraPieces
+  int get totalPieces => (quantity * product.piecesPerPackage) + extraPieces;
+
+  // Subtotal = unitPrice × totalPieces - discount
+  double get subtotal => (unitPrice * totalPieces) - discount;
+
+  // Quantity to send to backend: cartons + extraPieces/piecesPerPackage (decimal)
+  double get orderQuantity {
+    if (product.piecesPerPackage <= 1) return quantity.toDouble();
+    return quantity + (extraPieces / product.piecesPerPackage);
+  }
 
   Map<String, dynamic> toOrderItem() {
     return {
       'product_id': product.id,
-      'quantity': quantity,
+      'quantity': orderQuantity,
       'unit_price': unitPrice,
       'discount': discount,
     };
@@ -34,11 +44,13 @@ class CartState {
   final List<CartItem> items;
   final int? clientId;
   final String? clientName;
+  final int? clientCategoryId;
 
   CartState({
     this.items = const [],
     this.clientId,
     this.clientName,
+    this.clientCategoryId,
   });
 
   double get totalAmount {
@@ -53,11 +65,14 @@ class CartState {
     List<CartItem>? items,
     int? clientId,
     String? clientName,
+    int? clientCategoryId,
+    bool clearClientCategoryId = false,
   }) {
     return CartState(
       items: items ?? this.items,
       clientId: clientId ?? this.clientId,
       clientName: clientName ?? this.clientName,
+      clientCategoryId: clearClientCategoryId ? null : (clientCategoryId ?? this.clientCategoryId),
     );
   }
 }
@@ -65,8 +80,23 @@ class CartState {
 class CartNotifier extends StateNotifier<CartState> {
   CartNotifier() : super(CartState());
 
-  void setClient(int clientId, String clientName) {
-    state = state.copyWith(clientId: clientId, clientName: clientName);
+  void setClient(int clientId, String clientName, {int? clientCategoryId}) {
+    state = state.copyWith(
+      clientId: clientId,
+      clientName: clientName,
+      clientCategoryId: clientCategoryId,
+      clearClientCategoryId: clientCategoryId == null,
+    );
+
+    // Re-price existing cart items based on client category
+    if (state.items.isNotEmpty) {
+      final updatedItems = List<CartItem>.from(state.items);
+      for (var item in updatedItems) {
+        final categoryPrice = item.product.getPriceForCategory(clientCategoryId);
+        item.unitPrice = categoryPrice;
+      }
+      state = state.copyWith(items: updatedItems);
+    }
   }
 
   void addItem(ProductModel product, {int quantity = 1, double? price}) {
@@ -78,8 +108,8 @@ class CartNotifier extends StateNotifier<CartState> {
       updatedItems[existingIndex].quantity += quantity;
       state = state.copyWith(items: updatedItems);
     } else {
-      // Add new item with unit price (per carton/box)
-      final unitPrice = price ?? product.unitPrice;
+      // Add new item with category-specific price or default
+      final unitPrice = price ?? product.getPriceForCategory(state.clientCategoryId);
       final newItem = CartItem(
         product: product,
         quantity: quantity,
@@ -106,14 +136,38 @@ class CartNotifier extends StateNotifier<CartState> {
 
   void updateQuantity(int productId, int quantity) {
     if (quantity <= 0) {
+      // Check if there are extra pieces — if so, keep the item with 0 cartons
+      final updatedItems = List<CartItem>.from(state.items);
+      final index = updatedItems.indexWhere((item) => item.product.id == productId);
+      if (index >= 0 && updatedItems[index].extraPieces > 0) {
+        updatedItems[index].quantity = 0;
+        state = state.copyWith(items: updatedItems);
+        return;
+      }
       removeItem(productId);
       return;
     }
-    
+
     final updatedItems = List<CartItem>.from(state.items);
     final index = updatedItems.indexWhere((item) => item.product.id == productId);
     if (index >= 0) {
       updatedItems[index].quantity = quantity;
+      state = state.copyWith(items: updatedItems);
+    }
+  }
+
+  void updateExtraPieces(int productId, int pieces) {
+    final updatedItems = List<CartItem>.from(state.items);
+    final index = updatedItems.indexWhere((item) => item.product.id == productId);
+    if (index >= 0) {
+      final item = updatedItems[index];
+      // Clamp extra pieces to 0..(piecesPerPackage - 1)
+      final maxPieces = item.product.piecesPerPackage - 1;
+      updatedItems[index].extraPieces = pieces.clamp(0, maxPieces);
+      // Remove item if both cartons and pieces are 0
+      if (updatedItems[index].quantity <= 0 && updatedItems[index].extraPieces <= 0) {
+        updatedItems.removeAt(index);
+      }
       state = state.copyWith(items: updatedItems);
     }
   }

@@ -8,6 +8,7 @@ import 'presentation/screens/home_screen.dart';
 import 'presentation/screens/add_client_screen.dart';
 import 'presentation/screens/create_order_screen.dart';
 import 'presentation/screens/order_detail_screen.dart';
+import 'presentation/screens/caisse_screen.dart';
 import 'data/models/order_model.dart';
 
 void main() {
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/add-client': (context) => const AddClientScreen(),
         '/create-order': (context) => const CreateOrderScreen(),
+        '/caisse': (context) => const CaisseScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/order-detail') {

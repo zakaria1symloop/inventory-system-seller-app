@@ -201,6 +201,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
   // Map to store quantity controllers for each product
   final Map<int, TextEditingController> _qtyControllers = {};
+  final Map<int, TextEditingController> _piecesControllers = {};
 
   // Debounce timer for search
   DateTime? _lastClientSearch;
@@ -258,6 +259,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     for (var controller in _qtyControllers.values) {
       controller.dispose();
     }
+    for (var controller in _piecesControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -270,15 +274,32 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     return _qtyControllers[productId]!;
   }
 
+  TextEditingController _getPiecesController(int productId, int currentPieces) {
+    if (!_piecesControllers.containsKey(productId)) {
+      _piecesControllers[productId] = TextEditingController(text: currentPieces.toString());
+    } else if (_piecesControllers[productId]!.text != currentPieces.toString()) {
+      _piecesControllers[productId]!.text = currentPieces.toString();
+    }
+    return _piecesControllers[productId]!;
+  }
+
   void _clearQtyControllers() {
     for (var controller in _qtyControllers.values) {
       controller.dispose();
     }
     _qtyControllers.clear();
+    for (var controller in _piecesControllers.values) {
+      controller.dispose();
+    }
+    _piecesControllers.clear();
   }
 
   void _selectClient(ClientModel client) {
-    ref.read(cartProvider.notifier).setClient(client.id, client.name);
+    ref.read(cartProvider.notifier).setClient(
+      client.id,
+      client.name,
+      clientCategoryId: client.clientCategoryId,
+    );
     setState(() {
       _currentStep = 1;
     });
@@ -607,7 +628,26 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           leading: const CircleAvatar(
             child: Icon(Icons.person),
           ),
-          title: Text(client.name),
+          title: Row(
+            children: [
+              Flexible(child: Text(client.name)),
+              if (client.clientCategoryName != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Text(
+                    client.clientCategoryName!,
+                    style: TextStyle(fontSize: 10, color: Colors.blue[700]),
+                  ),
+                ),
+              ],
+            ],
+          ),
           subtitle: Text(client.phone ?? ''),
           trailing: const Icon(Icons.arrow_back_ios),
           onTap: () => _selectClient(client),
@@ -714,34 +754,58 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${product.unitPrice.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                      Builder(builder: (context) {
+                        final categoryId = ref.read(cartProvider).clientCategoryId;
+                        final displayPrice = product.getPriceForCategory(categoryId);
+                        final isCustomPrice = categoryId != null && product.categoryPrices.containsKey(categoryId);
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isCustomPrice
+                                ? Colors.amber.withOpacity(0.15)
+                                : Theme.of(context).primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '${displayPrice.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: isCustomPrice ? Colors.amber[800] : Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'د.ج/قطعة',
+                                    style: TextStyle(
+                                      color: isCustomPrice
+                                          ? Colors.amber[700]
+                                          : Theme.of(context).primaryColor.withOpacity(0.8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'د.ج/${product.unitSaleShortName ?? "وحدة"}',
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor.withOpacity(0.8),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                              if (product.piecesPerPackage > 1)
+                                Text(
+                                  '${(displayPrice * product.piecesPerPackage).toStringAsFixed(2)} د.ج/كرتون',
+                                  style: TextStyle(
+                                    color: Colors.orange[700],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
                       if (product.piecesPerPackage > 1) ...[
                         const SizedBox(height: 6),
                         Text(
@@ -776,72 +840,165 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 ),
                 const SizedBox(width: 12),
                 if (inCart)
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Theme.of(context).primaryColor),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () {
-                            if (cartItem.quantity > 1) {
-                              ref.read(cartProvider.notifier).updateQuantity(
-                                product.id,
-                                cartItem.quantity - 1,
-                              );
-                            } else {
-                              ref.read(cartProvider.notifier).removeItem(product.id);
-                              _qtyControllers.remove(product.id);
-                            }
-                          },
-                          iconSize: 20,
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Cartons row
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Theme.of(context).primaryColor),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        SizedBox(
-                          width: 50,
-                          child: TextField(
-                            controller: _getQtyController(product.id, cartItem.quantity),
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                              isDense: true,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove),
+                              onPressed: () {
+                                if (cartItem.quantity > 1) {
+                                  ref.read(cartProvider.notifier).updateQuantity(
+                                    product.id,
+                                    cartItem.quantity - 1,
+                                  );
+                                } else if (cartItem.extraPieces > 0) {
+                                  ref.read(cartProvider.notifier).updateQuantity(product.id, 0);
+                                } else {
+                                  ref.read(cartProvider.notifier).removeItem(product.id);
+                                  _qtyControllers.remove(product.id);
+                                  _piecesControllers.remove(product.id);
+                                }
+                              },
+                              iconSize: 20,
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
                             ),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                            SizedBox(
+                              width: 50,
+                              child: TextField(
+                                controller: _getQtyController(product.id, cartItem.quantity),
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  isDense: true,
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                onSubmitted: (value) => _updateQuantityFromText(product, value),
+                                onTapOutside: (_) {
+                                  final controller = _qtyControllers[product.id];
+                                  if (controller != null) {
+                                    _updateQuantityFromText(product, controller.text);
+                                  }
+                                },
+                              ),
                             ),
-                            onSubmitted: (value) => _updateQuantityFromText(product, value),
-                            onTapOutside: (_) {
-                              final controller = _qtyControllers[product.id];
-                              if (controller != null) {
-                                _updateQuantityFromText(product, controller.text);
-                              }
-                            },
+                            IconButton(
+                              icon: Icon(
+                                Icons.add,
+                                color: cartItem.quantity >= availableStock
+                                    ? Colors.grey
+                                    : null,
+                              ),
+                              onPressed: cartItem.quantity >= availableStock
+                                  ? null
+                                  : () => _incrementQuantity(product, cartItem.quantity),
+                              iconSize: 20,
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Extra pieces row (only for products with piecesPerPackage > 1)
+                      if (product.piecesPerPackage > 1) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 16),
+                                onPressed: cartItem.extraPieces > 0
+                                    ? () {
+                                        ref.read(cartProvider.notifier).updateExtraPieces(
+                                          product.id,
+                                          cartItem.extraPieces - 1,
+                                        );
+                                      }
+                                    : null,
+                                iconSize: 16,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              ),
+                              SizedBox(
+                                width: 30,
+                                child: TextField(
+                                  controller: _getPiecesController(product.id, cartItem.extraPieces),
+                                  keyboardType: TextInputType.number,
+                                  textAlign: TextAlign.center,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                    isDense: true,
+                                  ),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.orange[800],
+                                  ),
+                                  onSubmitted: (value) {
+                                    int pieces = int.tryParse(value) ?? 0;
+                                    ref.read(cartProvider.notifier).updateExtraPieces(product.id, pieces);
+                                  },
+                                  onTapOutside: (_) {
+                                    final controller = _piecesControllers[product.id];
+                                    if (controller != null) {
+                                      int pieces = int.tryParse(controller.text) ?? 0;
+                                      ref.read(cartProvider.notifier).updateExtraPieces(product.id, pieces);
+                                    }
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: cartItem.extraPieces >= product.piecesPerPackage - 1
+                                      ? Colors.grey
+                                      : Colors.orange[800],
+                                ),
+                                onPressed: cartItem.extraPieces >= product.piecesPerPackage - 1
+                                    ? null
+                                    : () {
+                                        ref.read(cartProvider.notifier).updateExtraPieces(
+                                          product.id,
+                                          cartItem.extraPieces + 1,
+                                        );
+                                      },
+                                iconSize: 16,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.add,
-                            color: cartItem.quantity >= availableStock
-                                ? Colors.grey
-                                : null,
-                          ),
-                          onPressed: cartItem.quantity >= availableStock
-                              ? null
-                              : () => _incrementQuantity(product, cartItem.quantity),
-                          iconSize: 20,
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                        Text(
+                          'قطعة',
+                          style: TextStyle(fontSize: 9, color: Colors.orange[700]),
                         ),
                       ],
-                    ),
+                    ],
                   )
                 else
                   ElevatedButton.icon(
@@ -911,9 +1068,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
-                              '${item.unitPrice.toStringAsFixed(0)} د.ج',
+                              '${item.unitPrice.toStringAsFixed(0)} د.ج/قطعة',
                               style: TextStyle(color: Colors.grey[600], fontSize: 11),
                             ),
+                            if (item.product.piecesPerPackage > 1)
+                              Text(
+                                '${(item.unitPrice * item.product.piecesPerPackage).toStringAsFixed(0)} د.ج/كرتون',
+                                style: TextStyle(color: Colors.orange[700], fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
                             if (item.product.piecesPerPackage > 1)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -936,65 +1098,130 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                     ),
                   ),
                   // Quantity controls
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove, size: 18),
-                          onPressed: () {
-                            if (item.quantity > 1) {
-                              ref.read(cartProvider.notifier).updateQuantity(
-                                item.product.id,
-                                item.quantity - 1,
-                              );
-                            } else {
-                              ref.read(cartProvider.notifier).removeItem(item.product.id);
-                            }
-                          },
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Cartons row
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        SizedBox(
-                          width: 40,
-                          child: TextField(
-                            controller: _getQtyController(item.product.id, item.quantity),
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                              isDense: true,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove, size: 18),
+                              onPressed: () {
+                                if (item.quantity > 1) {
+                                  ref.read(cartProvider.notifier).updateQuantity(
+                                    item.product.id,
+                                    item.quantity - 1,
+                                  );
+                                } else if (item.extraPieces > 0) {
+                                  ref.read(cartProvider.notifier).updateQuantity(item.product.id, 0);
+                                } else {
+                                  ref.read(cartProvider.notifier).removeItem(item.product.id);
+                                }
+                              },
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
                             ),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                            onSubmitted: (value) => _updateQuantityFromText(item.product, value),
-                            onTapOutside: (_) {
-                              final controller = _qtyControllers[item.product.id];
-                              if (controller != null) {
-                                _updateQuantityFromText(item.product, controller.text);
-                              }
-                            },
+                            SizedBox(
+                              width: 40,
+                              child: TextField(
+                                controller: _getQtyController(item.product.id, item.quantity),
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  isDense: true,
+                                ),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                onSubmitted: (value) => _updateQuantityFromText(item.product, value),
+                                onTapOutside: (_) {
+                                  final controller = _qtyControllers[item.product.id];
+                                  if (controller != null) {
+                                    _updateQuantityFromText(item.product, controller.text);
+                                  }
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.add,
+                                size: 18,
+                                color: item.quantity >= availableStock ? Colors.grey : null,
+                              ),
+                              onPressed: item.quantity >= availableStock
+                                  ? null
+                                  : () => _incrementQuantity(item.product, item.quantity),
+                              padding: const EdgeInsets.all(4),
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Extra pieces row for cart review
+                      if (item.product.piecesPerPackage > 1) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange[300]!),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove, size: 14),
+                                onPressed: item.extraPieces > 0
+                                    ? () {
+                                        ref.read(cartProvider.notifier).updateExtraPieces(
+                                          item.product.id,
+                                          item.extraPieces - 1,
+                                        );
+                                      }
+                                    : null,
+                                iconSize: 14,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                              ),
+                              SizedBox(
+                                width: 24,
+                                child: Text(
+                                  '${item.extraPieces}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.orange[800],
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.add, size: 14, color: item.extraPieces >= item.product.piecesPerPackage - 1 ? Colors.grey : Colors.orange[800]),
+                                onPressed: item.extraPieces >= item.product.piecesPerPackage - 1
+                                    ? null
+                                    : () {
+                                        ref.read(cartProvider.notifier).updateExtraPieces(
+                                          item.product.id,
+                                          item.extraPieces + 1,
+                                        );
+                                      },
+                                iconSize: 14,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.add,
-                            size: 18,
-                            color: item.quantity >= availableStock ? Colors.grey : null,
-                          ),
-                          onPressed: item.quantity >= availableStock
-                              ? null
-                              : () => _incrementQuantity(item.product, item.quantity),
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
-                        ),
+                        Text('قطعة', style: TextStyle(fontSize: 8, color: Colors.orange[700])),
                       ],
-                    ),
+                    ],
                   ),
                   const SizedBox(width: 12),
                   Column(
@@ -1005,7 +1232,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${item.unitPrice.toStringAsFixed(0)}×${item.quantity}',
+                        item.extraPieces > 0
+                            ? '${item.quantity}كرتون+${item.extraPieces}ق'
+                            : '${item.unitPrice.toStringAsFixed(0)}×${item.quantity}',
                         style: TextStyle(fontSize: 9, color: Colors.grey[500]),
                       ),
                     ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/caisse_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'clients_screen.dart';
@@ -194,6 +195,7 @@ class _DashboardTab extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final connectivityState = ref.watch(connectivityProvider);
     final ordersAsync = ref.watch(todayOrdersProvider);
+    final caisseAsync = ref.watch(myCaisseProvider);
 
     // Calculate today's stats
     final todayOrders = ordersAsync.valueOrNull ?? [];
@@ -322,6 +324,80 @@ class _DashboardTab extends ConsumerWidget {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            // Caisse Balance Card
+            caisseAsync.when(
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (caisse) {
+                if (caisse == null) return const SizedBox.shrink();
+                return GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/caisse'),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.successColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet,
+                            color: AppTheme.successColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'رصيد الصندوق',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${caisse.balance.toStringAsFixed(2)} د.ج',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.successColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_left,
+                          color: Colors.grey[400],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
             const SizedBox(height: 20),
 
             // Today's Stats
@@ -417,6 +493,14 @@ class _DashboardTab extends ConsumerWidget {
                   label: 'سجل الطلبات',
                   color: AppTheme.secondaryColor,
                   onTap: () => onNavigateToTab(3),
+                ),
+                _QuickActionCard(
+                  icon: Icons.account_balance_wallet,
+                  label: 'صندوقي',
+                  color: Colors.teal,
+                  onTap: () {
+                    Navigator.pushNamed(context, '/caisse');
+                  },
                 ),
               ],
             ),

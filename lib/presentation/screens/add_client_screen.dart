@@ -17,11 +17,22 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  
+
   double? _latitude;
   double? _longitude;
   bool _isLoadingLocation = false;
   bool _isSaving = false;
+
+  // Client categories
+  List<Map<String, dynamic>> _categories = [];
+  int? _selectedCategoryId;
+  bool _isLoadingCategories = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
 
   @override
   void dispose() {
@@ -29,6 +40,30 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
     _phoneController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final response = await ApiService.instance.getClientCategories();
+      if (response.statusCode == 200) {
+        final data = response.data;
+        List<dynamic> list;
+        if (data is Map && data.containsKey('data')) {
+          list = data['data'] as List<dynamic>;
+        } else if (data is List) {
+          list = data;
+        } else {
+          list = [];
+        }
+        setState(() {
+          _categories = list.cast<Map<String, dynamic>>();
+          _isLoadingCategories = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("[CLIENT] Error loading categories: $e");
+      setState(() => _isLoadingCategories = false);
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -143,9 +178,9 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
 
   Future<void> _saveClient() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isSaving = true);
-    
+
     try {
       final data = {
         "name": _nameController.text.trim(),
@@ -153,11 +188,12 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
         if (_addressController.text.isNotEmpty) "address": _addressController.text.trim(),
         if (_latitude != null) "gps_lat": _latitude,
         if (_longitude != null) "gps_lng": _longitude,
+        if (_selectedCategoryId != null) "client_category_id": _selectedCategoryId,
       };
-      
+
       debugPrint("[CLIENT] Creating: $data");
       await ApiService.instance.createClient(data);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("تم إضافة العميل بنجاح"), backgroundColor: AppTheme.successColor),
@@ -198,6 +234,7 @@ class _AddClientScreenState extends ConsumerState<AddClientScreen> {
               decoration: const InputDecoration(labelText: "العنوان", prefixIcon: Icon(Icons.location_on)),
               maxLines: 2,
             ),
+            // Category hidden - defaults to retail (no category)
             const SizedBox(height: 24),
             Card(
               child: Padding(

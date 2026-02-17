@@ -25,6 +25,21 @@ int _toInt(dynamic value) {
   return 0;
 }
 
+Map<int, double> _parseCategoryPrices(dynamic value) {
+  if (value == null || value is! List) return {};
+  final Map<int, double> result = {};
+  for (final item in value) {
+    if (item is Map) {
+      final catId = item["client_category_id"];
+      final price = item["price"];
+      if (catId != null && price != null) {
+        result[_toInt(catId)] = _toDouble(price);
+      }
+    }
+  }
+  return result;
+}
+
 class ProductModel {
   final int id;
   final String name;
@@ -47,6 +62,7 @@ class ProductModel {
   final String? unitSaleName;
   final String? unitSaleShortName;
   final int piecesPerPackage;
+  final Map<int, double> categoryPrices;
   int? currentStock;
   int? availableStock;
 
@@ -58,6 +74,14 @@ class ProductModel {
 
   // Get min selling price per unit
   double get minUnitPrice => minSellingPrice ?? retailPrice;
+
+  // Get price for a specific client category
+  double getPriceForCategory(int? categoryId) {
+    if (categoryId != null && categoryPrices.containsKey(categoryId)) {
+      return categoryPrices[categoryId]!;
+    }
+    return wholesalePrice > 0 ? wholesalePrice : retailPrice;
+  }
 
   ProductModel({
     required this.id,
@@ -81,6 +105,7 @@ class ProductModel {
     this.unitSaleName,
     this.unitSaleShortName,
     this.piecesPerPackage = 1,
+    this.categoryPrices = const {},
     this.currentStock,
     this.availableStock,
   });
@@ -108,6 +133,7 @@ class ProductModel {
       unitSaleName: json["unit_sale"]?["name"]?.toString(),
       unitSaleShortName: json["unit_sale"]?["short_name"]?.toString(),
       piecesPerPackage: _toInt(json["pieces_per_package"]) > 0 ? _toInt(json["pieces_per_package"]) : 1,
+      categoryPrices: _parseCategoryPrices(json["category_prices"]),
       currentStock: json["current_stock"] != null ? _toInt(json["current_stock"]) : null,
       availableStock: json["available_stock"] != null ? _toInt(json["available_stock"]) : null,
     );

@@ -375,10 +375,20 @@ class OrderDetailScreen extends ConsumerWidget {
                           ),
                         ),
                         Expanded(
-                          child: Text(
-                            '${item.unitPrice.toStringAsFixed(0)}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 12),
+                          child: Column(
+                            children: [
+                              Text(
+                                '${item.unitPrice.toStringAsFixed(0)}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              if (item.piecesPerPackage > 1)
+                                Text(
+                                  '${(item.unitPrice * item.piecesPerPackage).toStringAsFixed(0)}/كرتون',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 9, color: Colors.orange[700], fontWeight: FontWeight.bold),
+                                ),
+                            ],
                           ),
                         ),
                         Expanded(
@@ -648,7 +658,13 @@ class OrderDetailScreen extends ConsumerWidget {
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
-                            child: pw.Text('${item.unitPrice.toStringAsFixed(0)}', style: pw.TextStyle(font: arabicFont), textAlign: pw.TextAlign.center),
+                            child: pw.Column(
+                              children: [
+                                pw.Text('${item.unitPrice.toStringAsFixed(0)}', style: pw.TextStyle(font: arabicFont), textAlign: pw.TextAlign.center),
+                                if (item.piecesPerPackage > 1)
+                                  pw.Text('${(item.unitPrice * item.piecesPerPackage).toStringAsFixed(0)}/كرتون', style: pw.TextStyle(font: arabicFont, fontSize: 7, color: PdfColors.orange800), textAlign: pw.TextAlign.center),
+                              ],
+                            ),
                           ),
                           pw.Padding(
                             padding: const pw.EdgeInsets.all(8),
