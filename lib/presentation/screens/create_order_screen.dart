@@ -459,14 +459,64 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     ref.read(cartProvider.notifier).updateQuantity(product.id, currentQty + 1);
   }
 
+  Future<bool> _onWillPop() async {
+    final cart = ref.read(cartProvider);
+    if (cart.items.isEmpty) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('تنبيه'),
+          content: Text('لديك ${cart.items.length} منتج في السلة. هل تريد الخروج وفقدان البيانات؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('البقاء'),
+            ),
+            TextButton(
+              onPressed: () {
+                ref.read(cartProvider.notifier).clearCart();
+                Navigator.pop(context, true);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('خروج'),
+            ),
+          ],
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartProvider);
 
-    return Directionality(
+    return PopScope(
+      canPop: cart.items.isEmpty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          ref.read(cartProvider.notifier).clearCart();
+          Navigator.pop(context);
+        }
+      },
+      child: Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              final shouldPop = await _onWillPop();
+              if (shouldPop && context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
           title: Text(_getStepTitle()),
           actions: [
             if (cart.items.isNotEmpty)
@@ -505,6 +555,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         body: _buildCurrentStep(),
         bottomNavigationBar: _buildBottomBar(cart),
       ),
+    ),
     );
   }
 
